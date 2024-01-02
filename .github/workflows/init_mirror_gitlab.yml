@@ -1,0 +1,36 @@
+name: Initialize Gitlab mirror
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync_to_gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Extract repository name
+        id: extract_repo_name
+        run: echo "::set-output name=reponame::$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)"
+        
+      - name: Set up Git
+        run: |
+          git config --global user.name "${{ secrets.GITLAB_USER }}"
+          git config --global user.email "${{ secrets.GITLAB_EMAIL }}"
+        env:
+          GITLAB_USER: ${{ secrets.GITLAB_USER }}
+          GITLAB_EMAIL: ${{ secrets.GITLAB_EMAIL }}
+
+      - name: Remove shallow update
+        run: git fetch --prune --unshallow
+
+      - name: Push to GitLab
+        run: |
+          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/rmottanet/${{ steps.extract_repo_name.outputs.reponame }}.git
+          git push --set-upstream gitlab --all
+          git push --set-upstream gitlab --tags
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
